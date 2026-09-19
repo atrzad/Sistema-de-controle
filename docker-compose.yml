@@ -1,0 +1,51 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: sistema_controle
+      POSTGRES_USER: sistema_controle_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    ports:
+      - "${DB_HOST_PORT:-5433}:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sistema_controle_user"]
+      interval: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=sistema_controle;Username=sistema_controle_user;Password=${DB_PASSWORD:-changeme}"
+      Jwt__Secret: ${JWT_SECRET:-troque-esta-chave-por-uma-bem-longa-e-aleatoria-em-producao}
+      Jwt__Issuer: sistema-controle-api
+      Jwt__Audience: sistema-controle-frontend
+      Jwt__ExpirationHours: "8"
+      Storage__BasePath: /app/storage
+      Cors__AllowedOrigin: ${CORS_ALLOWED_ORIGIN:-http://localhost:3000}
+    ports:
+      - "5000:8080"
+    volumes:
+      - atestados-storage:/app/storage
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:5000/api/v1}
+    depends_on:
+      - api
+    ports:
+      - "3000:80"
+
+volumes:
+  db-data:
+  atestados-storage:

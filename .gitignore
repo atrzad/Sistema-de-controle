@@ -1,0 +1,21 @@
+# .NET
+backend/**/bin/
+backend/**/obj/
+*.user
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+
+# Ambiente
+.env
+
+# Storage local de atestados (não versionar uploads)
+backend/src/SistemaDeControle.Api/storage/
+
+# Editores / SO
+.vs/
+.vscode/
+.idea/
+.DS_Store
