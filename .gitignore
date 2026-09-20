@@ -2,14 +2,21 @@
 backend/**/bin/
 backend/**/obj/
 *.user
+backend/**/TestResults/
+backend/**/*.log
 
 # Frontend
 frontend/node_modules/
 frontend/dist/
 frontend/*.tsbuildinfo
+frontend/coverage/
+npm-debug.log*
 
 # Ambiente
 .env
+.env.local
+frontend/.env
+frontend/.env.local
 
 # Storage local de atestados (não versionar uploads)
 backend/src/SistemaDeControle.Api/storage/
@@ -19,3 +26,4 @@ backend/src/SistemaDeControle.Api/storage/
 .vscode/
 .idea/
 .DS_Store
+Thumbs.db
