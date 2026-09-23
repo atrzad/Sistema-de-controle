@@ -1,3 +1,4 @@
+using SistemaDeControle.Application.Common;
 using SistemaDeControle.Application.Common.Exceptions;
 using SistemaDeControle.Application.DTOs.Justificativas;
 using SistemaDeControle.Application.Interfaces;
@@ -7,9 +8,13 @@ namespace SistemaDeControle.Application.Services;
 
 public class JustificativaService : IJustificativaService
 {
-    private static readonly HashSet<string> TiposPermitidos = new(StringComparer.OrdinalIgnoreCase)
+    // Assinaturas (magic bytes) dos tipos aceitos. O tipo do arquivo é decidido pelo conteúdo,
+    // não pelo Content-Type/extensão enviados pelo cliente, que podem ser forjados.
+    private static readonly (string TipoConteudo, byte[] Assinatura)[] TiposPermitidos =
     {
-        "application/pdf", "image/jpeg", "image/png"
+        ("application/pdf", "%PDF-"u8.ToArray()),
+        ("image/jpeg", new byte[] { 0xFF, 0xD8, 0xFF }),
+        ("image/png", new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }),
     };
 
     private const long TamanhoMaximoBytes = 5 * 1024 * 1024; // 5 MB
@@ -28,10 +33,10 @@ public class JustificativaService : IJustificativaService
         _arquivoStorageService = arquivoStorageService;
     }
 
-    public async Task<List<JustificativaResponseDto>> ListAsync(int? professorId, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken = default)
+    public async Task<ResultadoPaginado<JustificativaResponseDto>> ListAsync(int? professorId, DateOnly? dataInicio, DateOnly? dataFim, Paginacao? paginacao = null, CancellationToken cancellationToken = default)
     {
-        var justificativas = await _justificativaRepository.ListAsync(professorId, dataInicio, dataFim, cancellationToken);
-        return justificativas.Select(MapToDto).ToList();
+        var (justificativas, total) = await _justificativaRepository.ListAsync(professorId, dataInicio, dataFim, paginacao, cancellationToken);
+        return new ResultadoPaginado<JustificativaResponseDto>(justificativas.Select(MapToDto).ToList(), total);
     }
 
     public async Task<JustificativaResponseDto> GetByIdAsync(int id, CancellationToken cancellationToken = default)
@@ -47,7 +52,7 @@ public class JustificativaService : IJustificativaService
         Stream arquivoStream, string nomeArquivoOriginal, string tipoConteudo, long tamanhoBytes,
         CancellationToken cancellationToken = default)
     {
-        ValidarArquivo(tipoConteudo, tamanhoBytes);
+        ValidarTamanho(tamanhoBytes);
 
         var registro = await _frequenciaRepository.GetByIdAsync(registroFrequenciaId, cancellationToken)
             ?? throw new NotFoundException(nameof(RegistroFrequencia), registroFrequenciaId);
@@ -56,6 +61,7 @@ public class JustificativaService : IJustificativaService
         if (existente is not null)
             throw new ConflictException("Já existe uma justificativa para este registro de frequência.");
 
+        (arquivoStream, tipoConteudo) = await DetectarTipoAsync(arquivoStream, cancellationToken);
         var arquivoSalvo = await _arquivoStorageService.SalvarAsync(arquivoStream, nomeArquivoOriginal, tipoConteudo, cancellationToken);
 
         var justificativa = new Justificativa
@@ -76,7 +82,7 @@ public class JustificativaService : IJustificativaService
         });
 
         await _justificativaRepository.AddAsync(justificativa, cancellationToken);
-        await _justificativaRepository.SaveChangesAsync(cancellationToken);
+        await SalvarOuDescartarArquivoAsync(arquivoSalvo, cancellationToken);
 
         return MapToDto(justificativa);
     }
@@ -85,11 +91,12 @@ public class JustificativaService : IJustificativaService
         int justificativaId, Stream arquivoStream, string nomeArquivoOriginal, string tipoConteudo, long tamanhoBytes,
         CancellationToken cancellationToken = default)
     {
-        ValidarArquivo(tipoConteudo, tamanhoBytes);
+        ValidarTamanho(tamanhoBytes);
 
         var justificativa = await _justificativaRepository.GetByIdAsync(justificativaId, cancellationToken)
             ?? throw new NotFoundException(nameof(Justificativa), justificativaId);
 
+        (arquivoStream, tipoConteudo) = await DetectarTipoAsync(arquivoStream, cancellationToken);
         var arquivoSalvo = await _arquivoStorageService.SalvarAsync(arquivoStream, nomeArquivoOriginal, tipoConteudo, cancellationToken);
 
         var anexo = new Anexo
@@ -104,7 +111,7 @@ public class JustificativaService : IJustificativaService
         };
 
         justificativa.Anexos.Add(anexo);
-        await _justificativaRepository.SaveChangesAsync(cancellationToken);
+        await SalvarOuDescartarArquivoAsync(arquivoSalvo, cancellationToken);
 
         return new AnexoResponseDto(anexo.Id, anexo.NomeArquivoOriginal, anexo.TipoConteudo, anexo.TamanhoBytes, anexo.CreatedAt);
     }
@@ -114,11 +121,23 @@ public class JustificativaService : IJustificativaService
         var justificativa = await _justificativaRepository.GetByIdAsync(id, cancellationToken)
             ?? throw new NotFoundException(nameof(Justificativa), id);
 
-        foreach (var anexo in justificativa.Anexos)
-            _arquivoStorageService.Remover(anexo.CaminhoRelativo);
+        var caminhos = justificativa.Anexos.Select(a => a.CaminhoRelativo).ToList();
 
+        // Banco primeiro: se o commit falhar, os arquivos continuam lá e nada se perde.
         _justificativaRepository.Remove(justificativa);
         await _justificativaRepository.SaveChangesAsync(cancellationToken);
+
+        foreach (var caminho in caminhos)
+        {
+            try
+            {
+                _arquivoStorageService.Remover(caminho);
+            }
+            catch (IOException)
+            {
+                // Arquivo órfão no disco é inofensivo; o registro já foi removido.
+            }
+        }
     }
 
     public async Task<(Stream Conteudo, string TipoConteudo, string NomeArquivoOriginal)> ObterAnexoAsync(int justificativaId, CancellationToken cancellationToken = default)
@@ -133,11 +152,45 @@ public class JustificativaService : IJustificativaService
         return (conteudo, anexo.TipoConteudo, anexo.NomeArquivoOriginal);
     }
 
-    private static void ValidarArquivo(string tipoConteudo, long tamanhoBytes)
+    private async Task SalvarOuDescartarArquivoAsync(ArquivoSalvoResultado arquivoSalvo, CancellationToken cancellationToken)
     {
-        if (!TiposPermitidos.Contains(tipoConteudo))
-            throw new BadRequestAppException("Tipo de arquivo não permitido. Envie um PDF, JPG ou PNG.");
+        try
+        {
+            await _justificativaRepository.SaveChangesAsync(cancellationToken);
+        }
+        catch
+        {
+            // Sem registro no banco o arquivo ficaria órfão no disco.
+            _arquivoStorageService.Remover(arquivoSalvo.CaminhoRelativo);
+            throw;
+        }
+    }
 
+    private static async Task<(Stream Conteudo, string TipoConteudo)> DetectarTipoAsync(Stream conteudo, CancellationToken cancellationToken)
+    {
+        if (!conteudo.CanSeek)
+        {
+            var copia = new MemoryStream();
+            await conteudo.CopyToAsync(copia, cancellationToken);
+            copia.Position = 0;
+            conteudo = copia;
+        }
+
+        var cabecalho = new byte[8];
+        var lidos = await conteudo.ReadAtLeastAsync(cabecalho, cabecalho.Length, throwOnEndOfStream: false, cancellationToken);
+        conteudo.Position = 0;
+
+        foreach (var (tipo, assinatura) in TiposPermitidos)
+        {
+            if (lidos >= assinatura.Length && cabecalho.AsSpan(0, assinatura.Length).SequenceEqual(assinatura))
+                return (conteudo, tipo);
+        }
+
+        throw new BadRequestAppException("Tipo de arquivo não permitido. Envie um PDF, JPG ou PNG.");
+    }
+
+    private static void ValidarTamanho(long tamanhoBytes)
+    {
         if (tamanhoBytes <= 0)
             throw new BadRequestAppException("Arquivo vazio.");
 

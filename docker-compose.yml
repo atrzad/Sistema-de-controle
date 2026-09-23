@@ -1,50 +1,71 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
   db:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: sistema_controle
       POSTGRES_USER: sistema_controle_user
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
-    ports:
-      - "${DB_HOST_PORT:-5433}:5432"
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Defina DB_PASSWORD no .env}
+    # Sem "ports": o banco só é acessível pela rede interna do compose.
+    # Para acessar do host em desenvolvimento, use docker-compose.dev.yml (ver README).
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sistema_controle_user"]
+      test: ["CMD-SHELL", "pg_isready -U sistema_controle_user -d sistema_controle"]
       interval: 5s
       retries: 5
+    logging: *default-logging
 
   api:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     environment:
-      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
-      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=sistema_controle;Username=sistema_controle_user;Password=${DB_PASSWORD:-changeme}"
-      Jwt__Secret: ${JWT_SECRET:-troque-esta-chave-por-uma-bem-longa-e-aleatoria-em-producao}
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=sistema_controle;Username=sistema_controle_user;Password=${DB_PASSWORD:?Defina DB_PASSWORD no .env}"
+      Jwt__Secret: ${JWT_SECRET:?Defina JWT_SECRET no .env (mínimo 32 caracteres)}
       Jwt__Issuer: sistema-controle-api
       Jwt__Audience: sistema-controle-frontend
       Jwt__ExpirationHours: "8"
       Storage__BasePath: /app/storage
       Cors__AllowedOrigin: ${CORS_ALLOWED_ORIGIN:-http://localhost:3000}
-    ports:
-      - "5000:8080"
+      Seed__AdminEmail: ${ADMIN_EMAIL:?Defina ADMIN_EMAIL no .env}
+      Seed__AdminPassword: ${ADMIN_PASSWORD:?Defina ADMIN_PASSWORD no .env}
     volumes:
       - atestados-storage:/app/storage
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging: *default-logging
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:5000/api/v1}
+        VITE_API_URL: ${VITE_API_URL:-/api/v1}
+    restart: unless-stopped
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    # Publicado só no loopback por padrão; em produção o Caddy (docker-compose.prod.yml)
+    # acessa o frontend pela rede interna e termina o HTTPS.
     ports:
-      - "3000:80"
+      - "${FRONTEND_BIND:-127.0.0.1}:${FRONTEND_HOST_PORT:-3000}:80"
+    logging: *default-logging
 
 volumes:
   db-data:

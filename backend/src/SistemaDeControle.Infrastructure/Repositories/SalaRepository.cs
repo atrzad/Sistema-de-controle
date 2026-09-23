@@ -16,7 +16,7 @@ public class SalaRepository : ISalaRepository
 
     public async Task<List<Sala>> ListAsync(bool? ativo, CancellationToken cancellationToken = default)
     {
-        var query = _context.Salas.AsQueryable();
+        var query = _context.Salas.AsNoTracking();
 
         if (ativo.HasValue)
             query = query.Where(s => s.Ativo == ativo.Value);

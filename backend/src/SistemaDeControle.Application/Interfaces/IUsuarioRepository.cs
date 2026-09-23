@@ -6,4 +6,5 @@ public interface IUsuarioRepository
 {
     Task<Usuario?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
     Task<Usuario?> GetByEmailAsync(string email, CancellationToken cancellationToken = default);
+    Task SaveChangesAsync(CancellationToken cancellationToken = default);
 }

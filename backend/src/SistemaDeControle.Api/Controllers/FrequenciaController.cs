@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using SistemaDeControle.Application.Common;
 using SistemaDeControle.Api.Extensions;
 using SistemaDeControle.Application.DTOs.Frequencia;
 using SistemaDeControle.Application.Interfaces;
@@ -17,8 +18,13 @@ public class FrequenciaController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<List<RegistroFrequenciaResponseDto>>> List(
         [FromQuery] int? professorId, [FromQuery] DateOnly? dataInicio, [FromQuery] DateOnly? dataFim, [FromQuery] StatusFrequencia? status,
-        CancellationToken cancellationToken) =>
-        Ok(await _frequenciaService.ListAsync(professorId, dataInicio, dataFim, status, cancellationToken));
+        [FromQuery] int? page, [FromQuery] int? pageSize,
+        CancellationToken cancellationToken)
+    {
+        var resultado = await _frequenciaService.ListAsync(professorId, dataInicio, dataFim, status, Paginacao.De(page, pageSize), cancellationToken);
+        Response.Headers["X-Total-Count"] = resultado.Total.ToString();
+        return Ok(resultado.Itens);
+    }
 
     [HttpGet("dia/{data}")]
     public async Task<ActionResult<List<OcorrenciaDiaDto>>> GetOcorrenciasDoDia(DateOnly data, CancellationToken cancellationToken) =>

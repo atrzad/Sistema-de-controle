@@ -19,6 +19,16 @@ public class AppDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+
+        // Concorrência otimista via coluna de sistema xmin do Postgres (não gera coluna nova):
+        // um UPDATE/DELETE sobre uma linha alterada por outra transação desde a leitura
+        // lança DbUpdateConcurrencyException (mapeada para 409).
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes()
+                     .Where(t => typeof(Domain.Common.BaseEntity).IsAssignableFrom(t.ClrType)))
+        {
+            modelBuilder.Entity(entityType.ClrType).Property<uint>("xmin").IsRowVersion();
+        }
+
         base.OnModelCreating(modelBuilder);
     }
 
@@ -36,11 +46,17 @@ public class AppDbContext : DbContext
 
     private void AtualizarTimestamps()
     {
+        var agora = DateTime.UtcNow;
+
         foreach (var entry in ChangeTracker.Entries<Domain.Common.BaseEntity>())
         {
-            if (entry.State == EntityState.Modified)
+            if (entry.State == EntityState.Added)
             {
-                entry.Entity.UpdatedAt = DateTime.UtcNow;
+                entry.Entity.CreatedAt = agora;
+            }
+            else if (entry.State == EntityState.Modified)
+            {
+                entry.Entity.UpdatedAt = agora;
             }
         }
     }

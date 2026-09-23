@@ -1,3 +1,4 @@
+using SistemaDeControle.Application.Common;
 using SistemaDeControle.Application.Common.Exceptions;
 using SistemaDeControle.Application.DTOs.Frequencia;
 using SistemaDeControle.Application.DTOs.Relatorios;
@@ -39,14 +40,13 @@ public class RelatorioService : IRelatorioService
     {
         var professores = await _professorRepository.ListAsync(null, true, cancellationToken);
 
-        var relatorios = new List<RelatorioFrequenciaDto>();
-        foreach (var professor in professores)
-        {
-            var registros = await _frequenciaRepository.ListAsync(professor.Id, dataInicio, dataFim, null, cancellationToken);
-            relatorios.Add(CalcularRelatorio(professor.Id, professor.Nome, dataInicio, dataFim, registros));
-        }
+        // Uma única consulta agregada para todos os professores (antes: uma por professor).
+        var contagensPorProfessor = (await _frequenciaRepository.ContarPorProfessorEStatusAsync(null, dataInicio, dataFim, cancellationToken))
+            .ToLookup(c => c.ProfessorId);
 
-        return relatorios;
+        return professores
+            .Select(p => CalcularRelatorio(p.Id, p.Nome, dataInicio, dataFim, contagensPorProfessor[p.Id]))
+            .ToList();
     }
 
     public async Task<List<TurmaAfetadaDto>> GetTurmasAfetadasHistoricoAsync(DateOnly dataInicio, DateOnly dataFim, CancellationToken cancellationToken = default)
@@ -69,17 +69,20 @@ public class RelatorioService : IRelatorioService
         var professor = await _professorRepository.GetByIdAsync(professorId, cancellationToken)
             ?? throw new NotFoundException(nameof(Professor), professorId);
 
-        var registros = await _frequenciaRepository.ListAsync(professorId, inicio, fim, null, cancellationToken);
+        var contagens = await _frequenciaRepository.ContarPorProfessorEStatusAsync(professorId, inicio, fim, cancellationToken);
 
-        return CalcularRelatorio(professor.Id, professor.Nome, inicio, fim, registros);
+        return CalcularRelatorio(professor.Id, professor.Nome, inicio, fim, contagens);
     }
 
-    private static RelatorioFrequenciaDto CalcularRelatorio(int professorId, string professorNome, DateOnly inicio, DateOnly fim, List<RegistroFrequencia> registros)
+    private static RelatorioFrequenciaDto CalcularRelatorio(int professorId, string professorNome, DateOnly inicio, DateOnly fim, IEnumerable<ContagemFrequencia> contagens)
     {
-        var totalAulas = registros.Count;
-        var totalPresencas = registros.Count(r => r.Status == StatusFrequencia.Presente);
-        var totalAusencias = registros.Count(r => r.Status == StatusFrequencia.Ausente);
-        var totalAusenciasJustificadas = registros.Count(r => r.Status == StatusFrequencia.AusenciaJustificada);
+        var porStatus = contagens.ToDictionary(c => c.Status, c => c.Total);
+        int Total(StatusFrequencia status) => porStatus.GetValueOrDefault(status);
+
+        var totalAulas = porStatus.Values.Sum();
+        var totalPresencas = Total(StatusFrequencia.Presente);
+        var totalAusencias = Total(StatusFrequencia.Ausente);
+        var totalAusenciasJustificadas = Total(StatusFrequencia.AusenciaJustificada);
         var percentualPresenca = totalAulas == 0 ? 0 : Math.Round(totalPresencas * 100.0 / totalAulas, 2);
 
         return new RelatorioFrequenciaDto(professorId, professorNome, inicio, fim, totalAulas, totalPresencas, totalAusencias, totalAusenciasJustificadas, percentualPresenca);

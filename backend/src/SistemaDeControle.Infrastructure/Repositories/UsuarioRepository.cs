@@ -16,4 +16,7 @@ public class UsuarioRepository : IUsuarioRepository
 
     public Task<Usuario?> GetByEmailAsync(string email, CancellationToken cancellationToken = default) =>
         _context.Usuarios.FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
+
+    public Task SaveChangesAsync(CancellationToken cancellationToken = default) =>
+        _context.SaveChangesAsync(cancellationToken);
 }

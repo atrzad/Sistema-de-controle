@@ -41,5 +41,19 @@ public class AuthService : IAuthService
         return MapToDto(usuario);
     }
 
+    public async Task AlterarSenhaAsync(int usuarioId, AlterarSenhaRequestDto request, CancellationToken cancellationToken = default)
+    {
+        var usuario = await _usuarioRepository.GetByIdAsync(usuarioId, cancellationToken)
+            ?? throw new NotFoundException(nameof(Usuario), usuarioId);
+
+        // 400 (e não 401) para não derrubar a sessão no frontend por um erro de digitação.
+        var resultado = _passwordHasher.VerifyHashedPassword(usuario, usuario.SenhaHash, request.SenhaAtual);
+        if (resultado == PasswordVerificationResult.Failed)
+            throw new BadRequestAppException("Senha atual incorreta.");
+
+        usuario.SenhaHash = _passwordHasher.HashPassword(usuario, request.NovaSenha);
+        await _usuarioRepository.SaveChangesAsync(cancellationToken);
+    }
+
     private static UsuarioDto MapToDto(Usuario usuario) => new(usuario.Id, usuario.Nome, usuario.Email);
 }

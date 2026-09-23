@@ -27,3 +27,6 @@ backend/src/SistemaDeControle.Api/storage/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Backups gerados por scripts/backup.sh
+backups/

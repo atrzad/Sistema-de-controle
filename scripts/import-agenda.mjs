@@ -1,6 +1,6 @@
-const API = 'http://localhost:5000/api/v1';
-const LOGIN_EMAIL = 'pedagogo@sistemadecontrole.local';
-const LOGIN_SENHA = 'TrocarSenha123!';
+const API = process.env.API_URL ?? 'http://localhost:3000/api/v1';
+const LOGIN_EMAIL = process.env.ADMIN_EMAIL ?? 'pedagogo@sistemadecontrole.local';
+const LOGIN_SENHA = process.env.ADMIN_PASSWORD ?? 'TrocarSenha123!';
 
 const PERIODOS = {
   '07:00': ['07:00:00', '08:20:00'],

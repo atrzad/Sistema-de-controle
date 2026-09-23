@@ -1,3 +1,4 @@
+using SistemaDeControle.Application.Common;
 using SistemaDeControle.Domain.Entities;
 using SistemaDeControle.Domain.Enums;
 
@@ -10,6 +11,15 @@ public interface IFrequenciaRepository
 
     Task<List<RegistroFrequencia>> ListAsync(
         int? professorId, DateOnly? dataInicio, DateOnly? dataFim, StatusFrequencia? status,
+        CancellationToken cancellationToken = default);
+
+    Task<ResultadoPaginado<RegistroFrequencia>> ListPaginadoAsync(
+        int? professorId, DateOnly? dataInicio, DateOnly? dataFim, StatusFrequencia? status, Paginacao? paginacao,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Contagem de registros por professor e status no período, agregada no banco.</summary>
+    Task<List<ContagemFrequencia>> ContarPorProfessorEStatusAsync(
+        int? professorId, DateOnly dataInicio, DateOnly dataFim,
         CancellationToken cancellationToken = default);
 
     Task<List<RegistroFrequencia>> ListByDataAsync(DateOnly data, CancellationToken cancellationToken = default);

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using SistemaDeControle.Application.Common;
 using SistemaDeControle.Application.DTOs.Justificativas;
 using SistemaDeControle.Application.Interfaces;
 
@@ -26,8 +27,13 @@ public class JustificativasController : ControllerBase
 
     [HttpGet]
     public async Task<ActionResult<List<JustificativaResponseDto>>> List(
-        [FromQuery] int? professorId, [FromQuery] DateOnly? dataInicio, [FromQuery] DateOnly? dataFim, CancellationToken cancellationToken) =>
-        Ok(await _justificativaService.ListAsync(professorId, dataInicio, dataFim, cancellationToken));
+        [FromQuery] int? professorId, [FromQuery] DateOnly? dataInicio, [FromQuery] DateOnly? dataFim,
+        [FromQuery] int? page, [FromQuery] int? pageSize, CancellationToken cancellationToken)
+    {
+        var resultado = await _justificativaService.ListAsync(professorId, dataInicio, dataFim, Paginacao.De(page, pageSize), cancellationToken);
+        Response.Headers["X-Total-Count"] = resultado.Total.ToString();
+        return Ok(resultado.Itens);
+    }
 
     [HttpGet("{id:int}")]
     public async Task<ActionResult<JustificativaResponseDto>> GetById(int id, CancellationToken cancellationToken) =>

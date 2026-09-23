@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SistemaDeControle.Application.Common;
 using SistemaDeControle.Application.Interfaces;
 using SistemaDeControle.Domain.Entities;
 using SistemaDeControle.Infrastructure.Data;
@@ -22,11 +23,11 @@ public class JustificativaRepository : IJustificativaRepository
     public Task<Justificativa?> GetByRegistroFrequenciaIdAsync(int registroFrequenciaId, CancellationToken cancellationToken = default) =>
         ComIncludes().FirstOrDefaultAsync(j => j.RegistroFrequenciaId == registroFrequenciaId, cancellationToken);
 
-    public async Task<List<Justificativa>> ListAsync(
-        int? professorId, DateOnly? dataInicio, DateOnly? dataFim,
+    public async Task<ResultadoPaginado<Justificativa>> ListAsync(
+        int? professorId, DateOnly? dataInicio, DateOnly? dataFim, Paginacao? paginacao,
         CancellationToken cancellationToken = default)
     {
-        var query = ComIncludes();
+        var query = ComIncludes().AsNoTracking();
 
         if (professorId.HasValue)
             query = query.Where(j => j.RegistroFrequencia.ProfessorId == professorId.Value);
@@ -37,7 +38,17 @@ public class JustificativaRepository : IJustificativaRepository
         if (dataFim.HasValue)
             query = query.Where(j => j.RegistroFrequencia.Data <= dataFim.Value);
 
-        return await query.OrderByDescending(j => j.DataEnvio).ToListAsync(cancellationToken);
+        var ordenada = query.OrderByDescending(j => j.DataEnvio).ThenBy(j => j.Id);
+
+        if (paginacao is null)
+        {
+            var todas = await ordenada.ToListAsync(cancellationToken);
+            return new ResultadoPaginado<Justificativa>(todas, todas.Count);
+        }
+
+        var total = await ordenada.CountAsync(cancellationToken);
+        var itens = await ordenada.Skip(paginacao.Skip).Take(paginacao.TamanhoPagina).ToListAsync(cancellationToken);
+        return new ResultadoPaginado<Justificativa>(itens, total);
     }
 
     public async Task AddAsync(Justificativa justificativa, CancellationToken cancellationToken = default) =>

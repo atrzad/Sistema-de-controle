@@ -20,7 +20,14 @@ public class LocalFileStorageService : IArquivoStorageService
         var pastaCompleta = Path.Combine(_basePath, subPasta);
         Directory.CreateDirectory(pastaCompleta);
 
-        var extensao = Path.GetExtension(nomeArquivoOriginal);
+        // Extensão derivada do tipo validado, nunca do nome enviado pelo cliente.
+        var extensao = tipoConteudo switch
+        {
+            "application/pdf" => ".pdf",
+            "image/jpeg" => ".jpg",
+            "image/png" => ".png",
+            _ => ".bin",
+        };
         var nomeArmazenado = $"{Guid.NewGuid():N}{extensao}";
         var caminhoRelativo = Path.Combine(subPasta, nomeArmazenado).Replace('\\', '/');
         var caminhoCompleto = Path.Combine(_basePath, caminhoRelativo);

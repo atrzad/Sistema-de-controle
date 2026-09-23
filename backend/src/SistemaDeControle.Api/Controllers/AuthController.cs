@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using SistemaDeControle.Api.Extensions;
 using SistemaDeControle.Application.DTOs.Auth;
 using SistemaDeControle.Application.Interfaces;
@@ -16,6 +17,7 @@ public class AuthController : ControllerBase
 
     [HttpPost("login")]
     [AllowAnonymous]
+    [EnableRateLimiting(RateLimitingExtensions.LoginPolicy)]
     public async Task<ActionResult<LoginResponseDto>> Login(LoginRequestDto request, CancellationToken cancellationToken)
     {
         var resultado = await _authService.LoginAsync(request, cancellationToken);
@@ -27,5 +29,13 @@ public class AuthController : ControllerBase
     {
         var usuario = await _authService.GetUsuarioAtualAsync(User.GetUsuarioId(), cancellationToken);
         return Ok(usuario);
+    }
+
+    [HttpPost("alterar-senha")]
+    [EnableRateLimiting(RateLimitingExtensions.LoginPolicy)]
+    public async Task<IActionResult> AlterarSenha(AlterarSenhaRequestDto request, CancellationToken cancellationToken)
+    {
+        await _authService.AlterarSenhaAsync(User.GetUsuarioId(), request, cancellationToken);
+        return NoContent();
     }
 }

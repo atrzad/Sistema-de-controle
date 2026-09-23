@@ -7,13 +7,13 @@ agendadas — 663 criadas com sucesso, 70 rejeitadas por conflito de horário le
 detectado na fonte original) diretamente via chamadas HTTP à API.
 
 Requer:
-- API rodando em `http://localhost:5000` (`docker compose up -d`)
+- Stack rodando (`docker compose up -d`); por padrão o script fala com a API pelo proxy do
+  frontend em `http://localhost:3000/api/v1` (sobrescreva com `API_URL=...`)
 - Node.js 18+ (usa `fetch` nativo)
-- Usuário pedagogo padrão já existente (criado automaticamente pelo seed no primeiro
-  start da API: `pedagogo@sistemadecontrole.local` / `TrocarSenha123!`)
+- Credenciais do usuário inicial — as mesmas de `ADMIN_EMAIL`/`ADMIN_PASSWORD` do `.env`
 
 ```bash
-node scripts/import-agenda.mjs
+ADMIN_EMAIL=pedagogo@sistemadecontrole.local ADMIN_PASSWORD='sua-senha' node scripts/import-agenda.mjs
 ```
 
 O script é idempotente na criação de professores/turmas/salas (se já existirem por

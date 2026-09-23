@@ -1,3 +1,4 @@
+using SistemaDeControle.Application.Common;
 using SistemaDeControle.Application.Common.Exceptions;
 using SistemaDeControle.Application.DTOs.Frequencia;
 using SistemaDeControle.Application.Interfaces;
@@ -17,10 +18,10 @@ public class FrequenciaService : IFrequenciaService
         _cronogramaRepository = cronogramaRepository;
     }
 
-    public async Task<List<RegistroFrequenciaResponseDto>> ListAsync(int? professorId, DateOnly? dataInicio, DateOnly? dataFim, StatusFrequencia? status, CancellationToken cancellationToken = default)
+    public async Task<ResultadoPaginado<RegistroFrequenciaResponseDto>> ListAsync(int? professorId, DateOnly? dataInicio, DateOnly? dataFim, StatusFrequencia? status, Paginacao? paginacao = null, CancellationToken cancellationToken = default)
     {
-        var registros = await _frequenciaRepository.ListAsync(professorId, dataInicio, dataFim, status, cancellationToken);
-        return registros.Select(MapToDto).ToList();
+        var (registros, total) = await _frequenciaRepository.ListPaginadoAsync(professorId, dataInicio, dataFim, status, paginacao, cancellationToken);
+        return new ResultadoPaginado<RegistroFrequenciaResponseDto>(registros.Select(MapToDto).ToList(), total);
     }
 
     public async Task<RegistroFrequenciaResponseDto> GetByIdAsync(int id, CancellationToken cancellationToken = default)

@@ -15,12 +15,22 @@ COPY . .
 
 RUN dotnet publish src/SistemaDeControle.Api/SistemaDeControle.Api.csproj -c Release -o /app/publish --no-restore
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS runtime
 WORKDIR /app
+
+# icu-libs: culturas completas (pt-BR); tzdata: fusos horários. wget (busybox) é usado no healthcheck.
+RUN apk add --no-cache icu-libs tzdata \
+    && mkdir -p /app/storage \
+    && chown -R $APP_UID /app/storage
+
+ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false \
+    ASPNETCORE_URLS=http://+:8080
 
 COPY --from=build /app/publish .
 
-ENV ASPNETCORE_URLS=http://+:8080
+# Usuário sem privilégios fornecido pela imagem base (UID 1654)
+USER $APP_UID
+
 EXPOSE 8080
 
 ENTRYPOINT ["dotnet", "SistemaDeControle.Api.dll"]

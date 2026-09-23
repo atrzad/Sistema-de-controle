@@ -1,10 +1,11 @@
+using SistemaDeControle.Application.Common;
 using SistemaDeControle.Application.DTOs.Justificativas;
 
 namespace SistemaDeControle.Application.Interfaces;
 
 public interface IJustificativaService
 {
-    Task<List<JustificativaResponseDto>> ListAsync(int? professorId, DateOnly? dataInicio, DateOnly? dataFim, CancellationToken cancellationToken = default);
+    Task<ResultadoPaginado<JustificativaResponseDto>> ListAsync(int? professorId, DateOnly? dataInicio, DateOnly? dataFim, Paginacao? paginacao = null, CancellationToken cancellationToken = default);
     Task<JustificativaResponseDto> GetByIdAsync(int id, CancellationToken cancellationToken = default);
 
     Task<JustificativaResponseDto> CriarAsync(
