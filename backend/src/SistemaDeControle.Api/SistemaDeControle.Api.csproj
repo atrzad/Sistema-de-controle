@@ -6,6 +6,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <!-- Pacote desktop (.exe com Postgres embutido): dotnet publish -p:Desktop=true. Ver scripts/build-desktop.sh -->
+  <PropertyGroup Condition="'$(Desktop)' == 'true'">
+    <DefineConstants>$(DefineConstants);DESKTOP</DefineConstants>
+    <AssemblyName>SistemaDeControle</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(Desktop)' == 'true'">
+    <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="FluentValidation.AspNetCore" Version="11.3.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.11" />
@@ -13,6 +23,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="8.0.11" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
   </ItemGroup>
 

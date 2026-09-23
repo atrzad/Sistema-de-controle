@@ -1,0 +1,15 @@
+# Sobreposição para desenvolvimento local: expõe banco e API no loopback do host
+# e liga o Swagger (ambiente Development).
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+services:
+  db:
+    ports:
+      - "127.0.0.1:${DB_HOST_PORT:-5433}:5432"
+
+  api:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      Cors__AllowedOrigin: ${CORS_ALLOWED_ORIGIN:-http://localhost:5173}
+    ports:
+      - "127.0.0.1:5000:8080"

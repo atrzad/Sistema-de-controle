@@ -25,7 +25,7 @@ public class CronogramaRepository : ICronogramaRepository
         int? professorId, int? turmaId, int? salaId, DiaSemana? diaSemana,
         CancellationToken cancellationToken = default)
     {
-        var query = ComIncludes();
+        var query = ComIncludes().AsNoTracking();
 
         if (professorId.HasValue) query = query.Where(a => a.ProfessorId == professorId.Value);
         if (turmaId.HasValue) query = query.Where(a => a.TurmaId == turmaId.Value);
@@ -38,19 +38,19 @@ public class CronogramaRepository : ICronogramaRepository
     }
 
     public async Task<List<AulaAgendada>> GetPorSalaEDiaAsync(int salaId, DiaSemana diaSemana, int? excludeId = null, CancellationToken cancellationToken = default) =>
-        await _context.AulasAgendadas
+        await _context.AulasAgendadas.AsNoTracking()
             .Where(a => a.SalaId == salaId && a.DiaSemana == diaSemana && a.Ativo)
             .Where(a => !excludeId.HasValue || a.Id != excludeId.Value)
             .ToListAsync(cancellationToken);
 
     public async Task<List<AulaAgendada>> GetPorProfessorEDiaAsync(int professorId, DiaSemana diaSemana, int? excludeId = null, CancellationToken cancellationToken = default) =>
-        await _context.AulasAgendadas
+        await _context.AulasAgendadas.AsNoTracking()
             .Where(a => a.ProfessorId == professorId && a.DiaSemana == diaSemana && a.Ativo)
             .Where(a => !excludeId.HasValue || a.Id != excludeId.Value)
             .ToListAsync(cancellationToken);
 
     public async Task<List<AulaAgendada>> GetGradeSemanalAsync(CancellationToken cancellationToken = default) =>
-        await ComIncludes()
+        await ComIncludes().AsNoTracking()
             .Where(a => a.Ativo)
             .OrderBy(a => a.DiaSemana).ThenBy(a => a.HoraInicio)
             .ToListAsync(cancellationToken);

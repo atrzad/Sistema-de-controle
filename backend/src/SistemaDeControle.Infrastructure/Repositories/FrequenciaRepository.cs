@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SistemaDeControle.Application.Common;
 using SistemaDeControle.Application.Interfaces;
 using SistemaDeControle.Domain.Entities;
 using SistemaDeControle.Domain.Enums;
@@ -25,22 +26,51 @@ public class FrequenciaRepository : IFrequenciaRepository
     public Task<RegistroFrequencia?> GetByAulaEDataAsync(int aulaAgendadaId, DateOnly data, CancellationToken cancellationToken = default) =>
         ComIncludes().FirstOrDefaultAsync(r => r.AulaAgendadaId == aulaAgendadaId && r.Data == data, cancellationToken);
 
-    public async Task<List<RegistroFrequencia>> ListAsync(
-        int? professorId, DateOnly? dataInicio, DateOnly? dataFim, StatusFrequencia? status,
-        CancellationToken cancellationToken = default)
+    private IQueryable<RegistroFrequencia> Filtrar(
+        IQueryable<RegistroFrequencia> query, int? professorId, DateOnly? dataInicio, DateOnly? dataFim, StatusFrequencia? status)
     {
-        var query = ComIncludes();
-
         if (professorId.HasValue) query = query.Where(r => r.ProfessorId == professorId.Value);
         if (dataInicio.HasValue) query = query.Where(r => r.Data >= dataInicio.Value);
         if (dataFim.HasValue) query = query.Where(r => r.Data <= dataFim.Value);
         if (status.HasValue) query = query.Where(r => r.Status == status.Value);
-
-        return await query.OrderByDescending(r => r.Data).ToListAsync(cancellationToken);
+        return query;
     }
 
+    public async Task<List<RegistroFrequencia>> ListAsync(
+        int? professorId, DateOnly? dataInicio, DateOnly? dataFim, StatusFrequencia? status,
+        CancellationToken cancellationToken = default) =>
+        await Filtrar(ComIncludes().AsNoTracking(), professorId, dataInicio, dataFim, status)
+            .OrderByDescending(r => r.Data)
+            .ToListAsync(cancellationToken);
+
+    public async Task<ResultadoPaginado<RegistroFrequencia>> ListPaginadoAsync(
+        int? professorId, DateOnly? dataInicio, DateOnly? dataFim, StatusFrequencia? status, Paginacao? paginacao,
+        CancellationToken cancellationToken = default)
+    {
+        var query = Filtrar(ComIncludes().AsNoTracking(), professorId, dataInicio, dataFim, status)
+            .OrderByDescending(r => r.Data).ThenBy(r => r.Id);
+
+        if (paginacao is null)
+        {
+            var todos = await query.ToListAsync(cancellationToken);
+            return new ResultadoPaginado<RegistroFrequencia>(todos, todos.Count);
+        }
+
+        var total = await query.CountAsync(cancellationToken);
+        var itens = await query.Skip(paginacao.Skip).Take(paginacao.TamanhoPagina).ToListAsync(cancellationToken);
+        return new ResultadoPaginado<RegistroFrequencia>(itens, total);
+    }
+
+    public async Task<List<ContagemFrequencia>> ContarPorProfessorEStatusAsync(
+        int? professorId, DateOnly dataInicio, DateOnly dataFim,
+        CancellationToken cancellationToken = default) =>
+        await Filtrar(_context.RegistrosFrequencia.AsNoTracking(), professorId, dataInicio, dataFim, null)
+            .GroupBy(r => new { r.ProfessorId, r.Status })
+            .Select(g => new ContagemFrequencia(g.Key.ProfessorId, g.Key.Status, g.Count()))
+            .ToListAsync(cancellationToken);
+
     public async Task<List<RegistroFrequencia>> ListByDataAsync(DateOnly data, CancellationToken cancellationToken = default) =>
-        await ComIncludes().Where(r => r.Data == data).ToListAsync(cancellationToken);
+        await ComIncludes().AsNoTracking().Where(r => r.Data == data).ToListAsync(cancellationToken);
 
     public async Task AddAsync(RegistroFrequencia registro, CancellationToken cancellationToken = default) =>
         await _context.RegistrosFrequencia.AddAsync(registro, cancellationToken);

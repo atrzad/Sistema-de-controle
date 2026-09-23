@@ -11,6 +11,10 @@ public static class AuthenticationExtensions
         var secret = configuration["Jwt:Secret"]
             ?? throw new InvalidOperationException("Configuração 'Jwt:Secret' não definida.");
 
+        // HMAC-SHA256 exige chave de pelo menos 256 bits; recusa subir com chave fraca.
+        if (Encoding.UTF8.GetByteCount(secret) < 32)
+            throw new InvalidOperationException("Configuração 'Jwt:Secret' deve ter no mínimo 32 caracteres.");
+
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
             {

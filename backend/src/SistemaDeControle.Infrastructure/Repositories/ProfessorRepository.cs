@@ -16,7 +16,7 @@ public class ProfessorRepository : IProfessorRepository
 
     public async Task<List<Professor>> ListAsync(string? nome, bool? ativo, CancellationToken cancellationToken = default)
     {
-        var query = _context.Professores.AsQueryable();
+        var query = _context.Professores.AsNoTracking();
 
         if (!string.IsNullOrWhiteSpace(nome))
             query = query.Where(p => EF.Functions.ILike(p.Nome, $"%{nome}%"));

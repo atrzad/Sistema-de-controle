@@ -8,6 +8,7 @@ import { SalasPage } from '../pages/salas/SalasPage';
 import { CronogramaPage } from '../pages/cronograma/CronogramaPage';
 import { FrequenciaPage } from '../pages/frequencia/FrequenciaPage';
 import { TurmasAfetadasPage } from '../pages/ausencias/TurmasAfetadasPage';
+import { AlterarSenhaPage } from '../pages/conta/AlterarSenhaPage';
 
 export function AppRoutes() {
   return (
@@ -22,6 +23,7 @@ export function AppRoutes() {
         <Route path="/cronograma" element={<CronogramaPage />} />
         <Route path="/frequencia" element={<FrequenciaPage />} />
         <Route path="/turmas-afetadas" element={<TurmasAfetadasPage />} />
+        <Route path="/alterar-senha" element={<AlterarSenhaPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

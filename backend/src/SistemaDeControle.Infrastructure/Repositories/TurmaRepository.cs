@@ -17,7 +17,7 @@ public class TurmaRepository : ITurmaRepository
 
     public async Task<List<Turma>> ListAsync(int? anoLetivo, Turno? turno, bool? ativo, CancellationToken cancellationToken = default)
     {
-        var query = _context.Turmas.AsQueryable();
+        var query = _context.Turmas.AsNoTracking();
 
         if (anoLetivo.HasValue)
             query = query.Where(t => t.AnoLetivo == anoLetivo.Value);

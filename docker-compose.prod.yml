@@ -1,0 +1,35 @@
+# Sobreposição para produção em VPS: adiciona o Caddy como proxy reverso com HTTPS
+# automático (Let's Encrypt). Requer DOMAIN apontando (DNS) para o IP do servidor
+# e as portas 80/443 liberadas no firewall.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+services:
+  api:
+    environment:
+      # Caddy + nginx na frente da API: o IP real do cliente está 2 saltos atrás.
+      ForwardedHeaders__ForwardLimit: "2"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - frontend
+    environment:
+      DOMAIN: "${DOMAIN:?Defina DOMAIN no .env, por exemplo controle.minhaescola.com.br}"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  caddy-data:
+  caddy-config:
