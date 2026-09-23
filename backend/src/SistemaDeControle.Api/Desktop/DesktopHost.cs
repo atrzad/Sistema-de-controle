@@ -48,7 +48,14 @@ public sealed class DesktopHost
     /// <returns>null quando o sistema não deve subir (já aberto em outra janela ou porta ocupada).</returns>
     public static async Task<DesktopHost?> IniciarAsync(string[] args)
     {
-        Console.OutputEncoding = Encoding.UTF8;
+        try
+        {
+            Console.OutputEncoding = Encoding.UTF8;
+        }
+        catch (IOException)
+        {
+            // Sem console real (saída redirecionada): mantém a codificação padrão.
+        }
 
         // Aberto com dois cliques, a janela fecharia antes de dar para ler o erro.
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
@@ -201,7 +208,10 @@ public sealed class DesktopHost
             {
                 await ExecutarAsync("initdb",
                     "-D", PastaBanco, "-U", "postgres", "--pwfile", arquivoSenha,
-                    "-E", "UTF8", "--locale=C", "-A", "scram-sha-256");
+                    // ICU pt-BR: buscas sem diferenciar maiúsculas funcionam com acentos
+                    // ("CONCEIÇÃO" encontra "Conceição"), independente do idioma do Windows.
+                    "-E", "UTF8", "--locale-provider=icu", "--icu-locale=pt-BR", "--locale=C",
+                    "-A", "scram-sha-256");
             }
             finally
             {
