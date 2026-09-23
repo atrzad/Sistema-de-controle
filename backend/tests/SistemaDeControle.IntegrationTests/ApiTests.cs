@@ -58,6 +58,20 @@ public class ApiTests
     }
 
     [Fact]
+    public async Task Professor_BuscaPorNome_IgnoraMaiusculasEmLetrasAcentuadas()
+    {
+        var client = await _factory.CriarClienteAutenticadoAsync();
+        var id = Cenario.Unico("acento");
+        var nome = $"Ana Conceição {id}";
+        await Cenario.CriarAsync(client, "/api/v1/professores", new { nome, email = id + "@teste.local", matricula = id });
+
+        var resposta = await client.GetAsync($"/api/v1/professores?nome={Uri.EscapeDataString("CONCEIÇÃO " + id.ToUpperInvariant())}");
+        var professores = await resposta.Content.ReadFromJsonAsync<JsonElement>(ApiFactory.Json);
+
+        Assert.Contains(professores.EnumerateArray(), p => p.GetProperty("nome").GetString() == nome);
+    }
+
+    [Fact]
     public async Task Cronograma_ComConflitoDeSala_DeveRetornar409_E_AulasEncostadasSaoPermitidas()
     {
         var client = await _factory.CriarClienteAutenticadoAsync();
