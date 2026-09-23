@@ -89,6 +89,34 @@ VITE_API_PROXY_TARGET=http://localhost:5141 npm run dev
 
 Acesse em http://localhost:5173.
 
+## Versão desktop (Windows .exe)
+
+Pacote para rodar em um único computador, sem Docker nem instalação: um executável com a
+API e o frontend, mais um PostgreSQL portátil que sobe e desce junto com o programa.
+
+```bash
+scripts/build-desktop.sh            # gera dist/SistemaDeControle-win-x64.zip (pode rodar no Linux/WSL)
+scripts/build-desktop.sh linux-x64  # mesma coisa para Linux, útil para testar sem Windows
+```
+
+No Windows: extrair o zip, dar dois cliques em `SistemaDeControle.exe`, informar e-mail e
+senha do administrador na primeira execução, e o navegador abre em http://localhost:5080.
+Os dados ficam em `%LOCALAPPDATA%\SistemaDeControle`. Instruções completas para o usuário
+final em [`scripts/desktop/LEIA-ME.txt`](scripts/desktop/LEIA-ME.txt), que vai dentro do zip.
+O workflow `.github/workflows/desktop.yml` gera o zip no GitHub (manual ou por tag `v*`).
+
+## Conta de administrador
+
+A conta de `ADMIN_EMAIL` é **sempre garantida**: se não existir no banco, é criada no start
+da API com a senha `ADMIN_PASSWORD`. Depois do primeiro login, a senha pode ser trocada em
+**Alterar senha**.
+
+Esqueceu a senha?
+- **Servidor/Docker:** coloque `RESET_ADMIN_PASSWORD=true` no `.env` e rode `docker compose up -d`.
+  A senha volta a ser `ADMIN_PASSWORD`. Entre e volte a opção para `false`.
+- **Desktop:** dois cliques em `Redefinir senha do administrador.bat` (ou
+  `SistemaDeControle.exe --redefinir-senha`) e digite a nova senha.
+
 ## Deploy em produção (VPS)
 
 Pré-requisitos: servidor Linux com Docker + plugin Compose, um domínio com registro DNS
@@ -132,7 +160,9 @@ dotnet test
 ```
 
 Os testes de integração (`tests/SistemaDeControle.IntegrationTests`) sobem um Postgres
-descartável via Testcontainers — é preciso ter o Docker rodando. O CI
+descartável via Testcontainers — é preciso ter o Docker rodando. Sem Docker, aponte para um
+Postgres existente: `SDC_TEST_PG="Host=localhost;Port=5432;Username=postgres;Password=..." dotnet test`
+(cada execução cria e apaga um banco temporário). O CI
 (`.github/workflows/ci.yml`) roda build, testes e build das imagens a cada push/PR.
 
 ## Dados de exemplo

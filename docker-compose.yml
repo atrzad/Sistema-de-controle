@@ -41,6 +41,7 @@ services:
       Cors__AllowedOrigin: ${CORS_ALLOWED_ORIGIN:-http://localhost:3000}
       Seed__AdminEmail: ${ADMIN_EMAIL:?Defina ADMIN_EMAIL no .env}
       Seed__AdminPassword: ${ADMIN_PASSWORD:?Defina ADMIN_PASSWORD no .env}
+      Seed__ResetAdminPassword: ${RESET_ADMIN_PASSWORD:-false}
     volumes:
       - atestados-storage:/app/storage
     healthcheck:

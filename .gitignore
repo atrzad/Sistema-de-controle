@@ -30,3 +30,7 @@ Thumbs.db
 
 # Backups gerados por scripts/backup.sh
 backups/
+
+# Pacote desktop (scripts/build-desktop.sh)
+.cache/
+dist/

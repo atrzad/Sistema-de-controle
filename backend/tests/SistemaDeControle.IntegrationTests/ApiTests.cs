@@ -23,8 +23,12 @@ public class ApiTests
     [Fact]
     public async Task Swagger_NaoDeveSerExpostoEmProducao()
     {
+        // Sem Swagger a rota não existe; como toda rota exige login, a resposta é 401 (nunca a página).
         var resposta = await _factory.CreateClient().GetAsync("/swagger/index.html");
-        Assert.Equal(HttpStatusCode.NotFound, resposta.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, resposta.StatusCode);
+
+        var client = await _factory.CriarClienteAutenticadoAsync();
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/swagger/index.html")).StatusCode);
     }
 
     [Fact]

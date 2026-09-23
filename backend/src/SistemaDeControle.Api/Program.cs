@@ -8,7 +8,20 @@ using SistemaDeControle.Infrastructure;
 using SistemaDeControle.Infrastructure.Data;
 using SistemaDeControle.Infrastructure.Data.Seed;
 
+#if DESKTOP
+var desktop = await SistemaDeControle.Api.Desktop.DesktopHost.IniciarAsync(args);
+if (desktop is null)
+    return;
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = SistemaDeControle.Api.Desktop.DesktopHost.FiltrarArgumentos(args),
+    ContentRootPath = AppContext.BaseDirectory,
+    EnvironmentName = Environments.Production,
+});
+desktop.ConfigurarBuilder(builder);
+#else
 var builder = WebApplication.CreateBuilder(args);
+#endif
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -72,11 +85,21 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await DbSeeder.SeedAsync(db, builder.Configuration["Seed:AdminEmail"], builder.Configuration["Seed:AdminPassword"]);
+    var adminEmail = app.Configuration["Seed:AdminEmail"];
+    var resultadoSeed = await DbSeeder.SeedAsync(
+        db, adminEmail, app.Configuration["Seed:AdminPassword"], app.Configuration.GetValue("Seed:ResetAdminPassword", false));
+
+    if (resultadoSeed == ResultadoSeedAdmin.Criado)
+        app.Logger.LogInformation("Conta administradora {Email} criada.", adminEmail);
+    else if (resultadoSeed == ResultadoSeedAdmin.SenhaRedefinida)
+        app.Logger.LogWarning("Senha da conta {Email} redefinida. No servidor, volte RESET_ADMIN_PASSWORD para false.", adminEmail);
 }
 
 app.UseForwardedHeaders();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
+#if DESKTOP
+desktop.ConfigurarArquivosEstaticos(app);
+#endif
 
 if (app.Environment.IsDevelopment())
 {
@@ -91,6 +114,9 @@ app.UseAuthorization();
 app.UseRateLimiter();
 app.MapControllers();
 app.MapHealthChecks("/health").AllowAnonymous();
+#if DESKTOP
+desktop.ConfigurarEndpoints(app);
+#endif
 
 app.Run();
 
